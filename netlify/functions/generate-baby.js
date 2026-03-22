@@ -46,7 +46,7 @@ exports.handler = async function (event) {
 
   if (action === 'create-prediction') {
     const res = await fetch(
-      'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
+      'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions',
       {
         method: 'POST',
         headers: {

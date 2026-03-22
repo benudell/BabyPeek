@@ -189,7 +189,7 @@ Return ONLY raw JSON with no markdown, no code fences. Start with { and end with
         if (!replicateToken || replicateToken === 'your_token_here') {
           throw new Error('Please add your Replicate API token to the .env file')
         }
-        const res = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions', {
+        const res = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
