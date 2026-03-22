@@ -46,6 +46,20 @@ export default function App() {
 
   const canProceed = selectedMomPhoto !== null && selectedDadPhoto !== null
 
+  const fetchImageAsBase64 = async (url) => {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64 = reader.result.split(',')[1]
+        const mediaType = blob.type || 'image/jpeg'
+        resolve({ base64, mediaType })
+      }
+      reader.readAsDataURL(blob)
+    })
+  }
+
   const handleGenerate = async () => {
     setStep(3)
     setError(null)
@@ -56,25 +70,55 @@ export default function App() {
       const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY
       const replicateToken = import.meta.env.VITE_REPLICATE_API_TOKEN
 
+      // Fetch both parent photos as base64 so Claude can actually see them
+      const [momImg, dadImg] = await Promise.all([
+        fetchImageAsBase64(selectedMomPhoto.url),
+        fetchImageAsBase64(selectedDadPhoto.url),
+      ])
+
       const claudeBody = {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
         messages: [
           {
             role: 'user',
-            content: `You are helping create a fun baby shower experience. Given these details, return a JSON object with exactly two fields: "imagePrompt" and "narrative".
+            content: [
+              {
+                type: 'text',
+                text: 'You are helping create a fun baby shower experience. I am going to show you photos of the mother and father. Please carefully analyze their physical features — hair color and texture, eye color, skin tone, face shape, nose shape, lip shape — and use those real observed features to generate a blended child image prompt.',
+              },
+              {
+                type: 'text',
+                text: 'Here is a photo of the MOTHER (Laura):',
+              },
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: momImg.mediaType, data: momImg.base64 },
+              },
+              {
+                type: 'text',
+                text: 'Here is a photo of the FATHER (Bryce):',
+              },
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: dadImg.mediaType, data: dadImg.base64 },
+              },
+              {
+                type: 'text',
+                text: `Now return a JSON object with exactly two fields: "imagePrompt" and "narrative".
 
-Parent photos: Mom: [${selectedMomPhoto.filename}], Dad: [${selectedDadPhoto.filename}]
 Baby age: ${age === 0 ? 'Newborn' : age + ' years old'}
 Gender: ${gender}${babyName ? `\nSuggested name: ${babyName}` : ''}${notes ? `\nPersonality/traits: ${notes}` : ''}
 
-"imagePrompt": A detailed prompt for a photorealistic image generator. Describe a warm, natural portrait of a ${age === 0 ? 'newborn baby' : age + ' year old child'} ${gender === 'Surprise' ? '' : gender === 'Girl' ? 'girl' : 'boy'} with blended features from both parents. Soft lighting, family portrait style. IMPORTANT: If the suggested name is "Ben" or "Amanda" (case-insensitive), the child MUST be wearing Milwaukee Brewers baseball gear — include a Brewers jersey, cap, or both prominently in the image. If the suggested name strongly indicates a specific cultural or ethnic background (for example, Devonte, Jayla, or similar names suggest African American heritage; names like Miguel or Sofia suggest Hispanic heritage; names like Mei or Kai might suggest Asian heritage), make sure the child's appearance authentically reflects that ethnicity in the image prompt.
+"imagePrompt": Based on the ACTUAL features you observed in the parent photos above, write a highly detailed prompt for a photorealistic image generator. Explicitly describe the child's specific blended physical traits — mention exact hair color/texture, eye color, skin tone, and facial features inherited from each parent. The child should genuinely look like a believable blend of these two specific people. Warm, natural portrait, soft lighting, family portrait style. IMPORTANT: If the suggested name is "Ben" or "Amanda" (case-insensitive), the child MUST be wearing Milwaukee Brewers baseball gear. If the name strongly indicates a specific cultural or ethnic background, reflect that authentically.
 
-"narrative": 3-4 warm, glowing, endearing sentences imagining this child's personality and future. Write it as if speaking directly to the parents — loving, positive, and full of joy. ${notes ? `You MUST directly incorporate these specific traits and personality suggestions into the narrative: "${notes}". Weave them in naturally and make them central to the story you tell about this child.` : 'Invent something delightful and heartfelt based on the age and gender.'} ${babyName ? `Refer to the child as ${babyName}.` : 'Do not use a name.'} Never use generic filler — make it feel personal and specific.
+"narrative": 3-4 warm, glowing, endearing sentences imagining this child's personality and future, speaking directly to the parents. ${notes ? `Incorporate these traits: "${notes}".` : 'Invent something delightful and heartfelt.'} ${babyName ? `Refer to the child as ${babyName}.` : 'Do not use a name.'}
 
-IMPORTANT CONTENT RULE: Do not depict, reference, or imply any physical or cognitive disabilities in either the image prompt or the narrative. The child should always be portrayed as healthy and thriving.
+IMPORTANT CONTENT RULE: Never depict or reference any physical or cognitive disabilities. The child should always be portrayed as healthy and thriving.
 
-Return ONLY raw JSON with no markdown, no code fences, no explanation. Start your response with { and end with }.`,
+Return ONLY raw JSON with no markdown, no code fences. Start with { and end with }.`,
+              },
+            ],
           },
         ],
       }
