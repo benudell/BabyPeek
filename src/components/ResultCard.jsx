@@ -79,10 +79,21 @@ export default function ResultCard({ imageUrl, age, gender, babyName, narrative,
     setShowShareModal(false)
   }
 
-  const handleShareText = () => {
-    const textBody = `Meet ${nameLabel}!\n\n${narrative || ''}\n\nSee the baby here: ${imageUrl}\n\nGenerated at the Doolin Pierson Baby Shower`
-    window.open(`sms:?body=${encodeURIComponent(textBody)}`, '_blank')
+  const handleShareText = async () => {
     setShowShareModal(false)
+    const shareText = `Meet ${nameLabel}!\n\n${narrative || ''}\n\nGenerated at the Doolin Pierson Baby Shower`
+    try {
+      const response = await fetch(imageUrl)
+      const blob = await response.blob()
+      const file = new File([blob], `${nameLabel.replace(/\s+/g, '-')}.jpg`, { type: 'image/jpeg' })
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareText })
+        return
+      }
+    } catch {}
+    // Fallback: SMS with link
+    const textBody = `${shareText}\n\nSee the baby here: ${imageUrl}`
+    window.open(`sms:?body=${encodeURIComponent(textBody)}`, '_blank')
   }
 
   const handlePDF = async () => {
